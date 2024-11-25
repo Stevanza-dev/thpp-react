@@ -1,241 +1,341 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Navigation, Sword, Heart, Gift, Shield } from 'lucide-react';
 
-const TreasureHunt = () => {
+const PirateParty = () => {
   const [gameState, setGameState] = useState({
-    player: { x: 1, y: 1, hp: 20, attack: 5 },
+    player: { x: 1, y: 3, hp: 20, attack: 5 },
     currentStage: 1,
-    mapData: {
-    1: {
-        size: 9,
-        playerStart: { x: 1, y: 1 },
-        chest: { x: 9, y: 9 },
-        walls: [
-            { x: 2, y: 8 }, { x: 2, y: 7 }, { x: 2, y: 6 }, { x: 2, y: 5 }, { x: 2, y: 4 }, { x: 2, y: 3 },
-            { x: 2, y: 2 }, { x: 8, y: 2 }, { x: 8, y: 3 }, { x: 8, y: 4 }, { x: 8, y: 5 }, { x: 8, y: 6 },
-            { x: 8, y: 7 },
-            { x: 4, y: 6 }, { x: 4, y: 7 }, { x: 4, y: 8 },
-            { x: 6, y: 4 }, { x: 6, y: 5 }, { x: 6, y: 6 },
-            { x: 6, y: 7 }, { x: 6, y: 8 }
-        ],
-        grumete: [
-            { x: 5, y: 4 },
-            { x: 5, y: 5 }
-        ],
-        pirates: [
-            { x: 9, y: 1 },
-            { x: 1, y: 9 },
-            { x: 5, y: 9 }
-        ],
-        marines: [
-            { x: 9, y: 8 },
-            { x: 8, y: 9 }
-        ],
-        heals: [],
-        attackBuffs: []
-      }
-    },
+    showAlert: false,
+    alertMessage: '',
+    alertTitle: '',
     isGameOver: false,
+    showChestPopup: false
   });
 
-  const getCellContent = (x, y) => {
-    const currentMap = gameState.mapData[gameState.currentStage];
-
-    if (gameState.player.x === x && gameState.player.y === y) return 'P';
-    if (currentMap.chest.x === x && currentMap.chest.y === y) return 'C';
-    if (currentMap.walls.some(wall => wall.x === x && wall.y === y)) return 'W';
-    if (currentMap.grumete.some(g => g.x === x && g.y === y)) return 'T';
-    if (currentMap.pirates.some(p => p.x === x && p.y === y)) return 'B';
-    if (currentMap.marines.some(m => m.x === x && m.y === y)) return 'M';
-    if (currentMap.heals.some(h => h.x === x && h.y === y)) return 'H';
-    if (currentMap.attackBuffs.some(b => b.x === x && b.y === y)) return 'A';
-    return ' ';
-  };
-
-  const getCellStyle = (content) => {
-    const baseStyle = "w-12 h-12 border-2 border-gray-300 flex items-center justify-center font-bold text-lg";
-    switch (content) {
-      case 'P': return `${baseStyle} bg-blue-500 text-white`;
-      case 'C': return `${baseStyle} bg-yellow-400 text-black`;
-      case 'W': return `${baseStyle} bg-gray-800`;
-      case 'T': return `${baseStyle} bg-green-500 text-white`;
-      case 'B': return `${baseStyle} bg-red-600 text-white`;
-      case 'M': return `${baseStyle} bg-purple-600 text-white`;
-      case 'H': return `${baseStyle} bg-pink-400 text-white`;
-      case 'A': return `${baseStyle} bg-orange-500 text-white`;
-      default: return `${baseStyle} bg-white`;
+  const [mapData, setMapData] = useState({
+    1: {
+      size: 5,
+      playerStart: { x: 1, y: 3 },
+      chest: { x: 5, y: 3 },
+      walls: [
+        { x: 1, y: 2 }, { x: 2, y: 2 }, { x: 1, y: 4 },
+        { x: 2, y: 4 }, { x: 5, y: 2 }, { x: 5, y: 4 }
+      ],
+      grumete: [
+        { x: 4, y: 2, hp: 3, attack: 1 },
+        { x: 4, y: 3, hp: 3, attack: 1 },
+        { x: 4, y: 4, hp: 3, attack: 1 }
+      ],
+      pirates: [],
+      marines: [],
+      heals: [],
+      attackBuffs: []
     }
+  });
+
+  const SimpleAlert = ({ title, message }) => (
+    <div className="mb-4 p-4 rounded border bg-white shadow-sm">
+      <div className="font-bold mb-1">{title}</div>
+      <div>{message}</div>
+    </div>
+  );
+
+  const showAlert = (title, message) => {
+    setGameState(prev => ({
+      ...prev,
+      showAlert: true,
+      alertTitle: title,
+      alertMessage: message
+    }));
+
+    setTimeout(() => {
+      setGameState(prev => ({
+        ...prev,
+        showAlert: false,
+        alertTitle: '',
+        alertMessage: ''
+      }));
+    }, 2000);
   };
 
-  const movePlayer = useCallback((direction) => {
-    setGameState((prev) => {
-      const newPos = { ...prev.player };
+  const handleCombat = (nextPosition) => {
+    const currentStage = mapData[gameState.currentStage];
+    const grumeteAtPosition = currentStage.grumete.find(
+      g => g.x === nextPosition.x && g.y === nextPosition.y
+    );
 
-      switch (direction) {
-        case 'up': newPos.x--; break;
-        case 'down': newPos.x++; break;
-        case 'left': newPos.y--; break;
-        case 'right': newPos.y++; break;
-        default: return prev;
+    if (grumeteAtPosition) {
+      // Player attacks grumete
+      const updatedGrumete = currentStage.grumete.map(g => {
+        if (g.x === nextPosition.x && g.y === nextPosition.y) {
+          const newHp = g.hp - gameState.player.attack;
+          return { ...g, hp: newHp };
+        }
+        return g;
+      }).filter(g => g.hp > 0); // Remove defeated grumete
+
+      // Grumete counterattacks
+      const newPlayerHp = gameState.player.hp - grumeteAtPosition.attack;
+      
+      setMapData(prev => ({
+        ...prev,
+        [gameState.currentStage]: {
+          ...prev[gameState.currentStage],
+          grumete: updatedGrumete
+        }
+      }));
+
+      setGameState(prev => ({
+        ...prev,
+        player: {
+          ...prev.player,
+          hp: newPlayerHp
+        },
+        isGameOver: newPlayerHp <= 0
+      }));
+
+      showAlert(
+        "Combat!",
+        `You dealt ${gameState.player.attack} damage and received ${grumeteAtPosition.attack} damage!`
+      );
+
+      if (newPlayerHp <= 0) {
+        showAlert("Game Over", "You have been defeated!");
+        return true;
       }
 
-      const currentMap = prev.mapData[prev.currentStage];
-      if (
-        newPos.x < 1 ||
-        newPos.y < 1 ||
-        newPos.x > currentMap.size ||
-        newPos.y > currentMap.size ||
-        currentMap.walls.some((wall) => wall.x === newPos.x && wall.y === newPos.y)
-      ) {
-        return prev; // Posisi tidak valid
+      return true;
+    }
+    return false;
+  };
+
+  const getCellContent = (x, y) => {
+    const stage = mapData[gameState.currentStage];
+    
+    if (x === gameState.player.x && y === gameState.player.y) {
+      return <Navigation className="text-blue-500" size={24} />;
+    }
+    
+    if (stage.walls.some(wall => wall.x === x && wall.y === y)) {
+      return <div className="w-6 h-6 bg-gray-700 rounded" />;
+    }
+    
+    if (stage.chest.x === x && stage.chest.y === y) {
+      return <Gift className="text-yellow-500" size={24} />;
+    }
+    
+    if (stage.grumete.some(g => g.x === x && g.y === y)) {
+      const grumete = stage.grumete.find(g => g.x === x && g.y === y);
+      return (
+        <div className="relative">
+          <Shield className="text-green-500" size={24} />
+          <span className="absolute -top-2 -right-2 text-xs bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center">
+            {grumete.hp}
+          </span>
+        </div>
+      );
+    }
+    
+    if (stage.pirates.some(p => p.x === x && p.y === y)) {
+      return <Sword className="text-red-500" size={24} />;
+    }
+    
+    if (stage.heals.some(h => h.x === x && h.y === y)) {
+      return <Heart className="text-pink-500" size={24} />;
+    }
+
+    return null;
+  };
+
+  const ChestPopup = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+      <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm">
+        <h3 className="text-xl font-bold mb-4">Congratulations!</h3>
+        <p className="mb-4">You've found the treasure chest! You've completed stage {gameState.currentStage}!</p>
+        <button 
+          onClick={() => setGameState(prev => ({ ...prev, showChestPopup: false }))}
+          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  );
+
+  const move = useCallback((direction) => {
+    if (gameState.isGameOver) {
+      showAlert("Game Over", "Please restart the game!");
+      return;
+    }
+
+    setGameState(prev => {
+      const nextPosition = { 
+        x: prev.player.x + (direction === 'up' ? -1 : direction === 'down' ? 1 : 0),
+        y: prev.player.y + (direction === 'left' ? -1 : direction === 'right' ? 1 : 0)
+      };
+
+      const stage = mapData[prev.currentStage];
+      
+      // Check walls
+      if (stage.walls.some(wall => wall.x === nextPosition.x && wall.y === nextPosition.y)) {
+        showAlert("Invalid Move", "You can't move through walls!");
+        return prev;
       }
 
-      // Cek jika mencapai chest
-      if (newPos.x === currentMap.chest.x && newPos.y === currentMap.chest.y) {
-        alert("You found the treasure! Game Over 🎉");
+      // Check boundaries
+      if (nextPosition.x < 1 || nextPosition.x > stage.size || 
+          nextPosition.y < 1 || nextPosition.y > stage.size) {
+        showAlert("Invalid Move", "You can't move outside the map!");
+        return prev;
+      }
+
+      // Handle combat if moving into a grumete
+      if (handleCombat(nextPosition)) {
+        return prev;
+      }
+
+      // Check if player reached the chest
+      if (nextPosition.x === stage.chest.x && nextPosition.y === stage.chest.y) {
         return {
           ...prev,
-          player: newPos,
-          isGameOver: true, // Tambahkan flag untuk menghentikan interaksi
+          showChestPopup: true,
+          player: {
+            ...prev.player,
+            x: nextPosition.x,
+            y: nextPosition.y
+          }
         };
-      }
-
-      // Cek interaksi dengan elemen lain (grumete, pirates, heals, attack buffs)
-      const interactElement = getElementAtPosition(newPos, currentMap);
-      if (interactElement) {
-        return interactWithElement(interactElement, newPos, prev);
       }
 
       return {
         ...prev,
-        player: newPos,
+        player: {
+          ...prev.player,
+          x: nextPosition.x,
+          y: nextPosition.y
+        }
       };
     });
-  }, []);
+  }, [gameState.isGameOver, handleCombat, showAlert, mapData]);
 
-  const getElementAtPosition = (position, currentMap) => {
-    if (currentMap.grumete.some((g) => g.x === position.x && g.y === position.y)) {
-      return { type: "grumete", ...currentMap.grumete.find((g) => g.x === position.x && g.y === position.y) };
-    }
-    if (currentMap.pirates.some((p) => p.x === position.x && p.y === position.y)) {
-      return { type: "pirate", ...currentMap.pirates.find((p) => p.x === position.x && p.y === position.y) };
-    }
-    if (currentMap.marines.some((m) => m.x === position.x && m.y === position.y)) {
-      return { type: "marine", ...currentMap.marines.find((m) => m.x === position.x && m.y === position.y) };
-    }
-    if (currentMap.heals.some((h) => h.x === position.x && h.y === position.y)) {
-      return { type: "heal", ...currentMap.heals.find((h) => h.x === position.x && h.y === position.y) };
-    }
-    if (currentMap.attackBuffs.some((b) => b.x === position.x && b.y === position.y)) {
-      return { type: "attackBuff", ...currentMap.attackBuffs.find((b) => b.x === position.x && b.y === position.y) };
-    }
-    return null;
-  };
-
-  const interactWithElement = (element, position, prev) => {
-    const currentMap = prev.mapData[prev.currentStage];
-    let newPlayer = { ...prev.player };
-
-    if (element.type === "grumete" || element.type === "pirate" || element.type === "marine") {
-      alert(`Combat initiated! Player HP: ${newPlayer.hp}`);
-      // Logika combat bisa ditambahkan di sini
-      // Misalnya, mengurangi HP pemain dan musuh
-      // Jika pemain kalah, set isGameOver menjadi true
-      // Jika menang, hapus musuh dari map
-      return prev; // Kembalikan prev untuk sementara
-    } else if (element.type === "heal") {
-      newPlayer.hp += 5;
-      alert("You gained 5 HP!");
-      currentMap.heals = currentMap.heals.filter(h => h.x !== position.x || h.y !== position.y);
-    } else if (element.type === "attackBuff") {
-      newPlayer.attack += element.effect;
-      alert(`Your attack increased by ${element.effect}!`);
-      currentMap.attackBuffs = currentMap.attackBuffs.filter(b => b.x !== position.x || b.y !== position.y);
-    }
-
-    return {
-      ...prev,
-      player: newPlayer,
-    };
-  };
-
-  const handleKeyDown = useCallback(
-    (e) => {
-      if (gameState.isGameOver) return; // Hentikan kontrol jika game selesai
-
-      const direction = {
-        ArrowUp: 'up',
-        ArrowDown: 'down',
-        ArrowLeft: 'left',
-        ArrowRight: 'right',
-      }[e.key];
-
-      if (direction) {
-        movePlayer(direction);
-      }
-    },
-    [movePlayer, gameState.isGameOver]
-  );
-
+  // Tambahkan useEffect untuk mendengarkan event keydown
   useEffect(() => {
+    const handleKeyDown = (event) => {
+      switch (event.key) {
+        case 'ArrowUp':
+          move('up');
+          break;
+        case 'ArrowDown':
+          move('down');
+          break;
+        case 'ArrowLeft':
+          move('left');
+          break;
+        case 'ArrowRight':
+          move('right');
+          break;
+        default:
+          break;
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
 
-  const currentMap = gameState.mapData[gameState.currentStage];
-  const mapSize = currentMap.size;
+    // Bersihkan event listener saat komponen unmount
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [move]); 
 
-  // Create the grid rows and cells
-  const renderGrid = () => {
-    const grid = [];
-    for (let x = 1; x <= mapSize; x++) {
+  const renderGameBoard = () => {
+    const stage = mapData[gameState.currentStage];
+    const board = [];
+
+    for (let x = 1; x <= stage.size; x++) {
       const row = [];
-      for (let y = 1; y <= mapSize; y++) {
-        const content = getCellContent(x, y);
+      for (let y = 1; y <= stage.size; y++) {
         row.push(
-          <div key={`${x}-${y}`} className={getCellStyle(content)}>
-            {content}
+          <div 
+            key={`${x}-${y}`} 
+            className="w-16 h-16 border border-gray-300 flex items-center justify-center bg-white hover:bg-gray-100"
+          >
+            {getCellContent(x, y)}
           </div>
         );
       }
-      grid.push(
-        <div key={`row-${x}`} className="flex">
+      board.push(
+        <div key={x} className="flex">
           {row}
         </div>
       );
     }
-    return grid;
+
+    return board;
   };
 
   return (
-    <div className="flex flex-col items-center p-8 min-h-screen bg-gray-100">
-      <div className="mb-4">
-        <h1 className="text-3xl font-bold mb-2">Treasure Hunt</h1>
-        <div className="text-lg">
-          HP: {gameState.player.hp} | Attack: {gameState.player.attack} | Stage: {gameState.currentStage}
+    <div className="p-6 max-w-2xl mx-auto bg-gray-50 rounded-lg shadow-lg">
+      <div className="mb-4 text-center">
+        <h2 className="text-2xl font-bold mb-2">Pirate Party</h2>
+        <div className="flex justify-center gap-4 mb-4">
+          <div className="flex items-center gap-2">
+            <Heart className="text-red-500" />
+            <span>HP: {gameState.player.hp}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Sword className="text-blue-500" />
+            <span>Attack: {gameState.player.attack}</span>
+          </div>
+          <div>Stage: {gameState.currentStage}</div>
         </div>
       </div>
 
-      {gameState.isGameOver ? (
-        <div className="text-center p-4 bg-green-100 rounded-lg shadow-lg">
-          <h2 className="text-2xl font-bold text-green-600">You found the treasure! 🎉</h2>
-          <p className="text-lg mt-2">Refresh the page to play again.</p>
-        </div>
-      ) : (
-        <div className="bg-white p-4 rounded-lg shadow-lg">
-          <div className="flex flex-col gap-1">{renderGrid()}</div>
-        </div>
+      {gameState.showAlert && (
+        <SimpleAlert 
+          title={gameState.alertTitle} 
+          message={gameState.alertMessage} 
+        />
       )}
 
-      {!gameState.isGameOver && (
-        <div className="mt-4 text-gray-600">
-          <p>Use arrow keys to move</p>
-          <p className="mt-2">
-            Legend: P = Player | C = Chest | W = Wall | T = Grumete | B = Pirate | M = Marine | H = Health | A = Attack Buff
-          </p>
-        </div>
-      )}
+      {gameState.showChestPopup && <ChestPopup />}
+
+      <div className="mb-6">
+        {renderGameBoard()}
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 max-w-[200px] mx-auto">
+        <div></div>
+        <button 
+          onClick={() => move('up')}
+          className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded"
+        >
+          ↑
+        </button>
+        <div></div>
+        <button 
+          onClick={() => move('left')}
+          className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded"
+        >
+          ←
+        </button>
+        <div></div>
+        <button 
+          onClick={() => move('right')}
+          className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded"
+        >
+          →
+        </button>
+        <div></div>
+        <button 
+          onClick={() => move('down')}
+          className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded"
+        >
+          ↓
+        </button>
+        <div></div>
+      </div>
     </div>
   );
 };
 
-export default TreasureHunt;
+export default PirateParty;
